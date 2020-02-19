@@ -1,100 +1,81 @@
 import yaml
 
 from   . import game
+from   .ez import EzObject, EzAttr, EzList, fuzzy_match
 
 #-------------------------------------------------------------------------------
 
-def is_repl():
-    return True
+class Ability(EzAttr):
 
-
-def fuzzy_match(string, options):
-    string = str(string).lower()
-    matches = { o for o in options if str(o).lower().startswith(string) }
-    if len(matches) == 0:
-        raise LookupError(f"no match: {string}")
-    elif len(matches) == 1:
-        match, = matches
-        return match
-    else:
-        matches = " ".join( str(o) for o in matches )
-        raise LookupError(f"ambiguous match: {string}: {matches}")
-
-
-class EzFormat:
-
-    NAME_WIDTH = 24
-
-    def __genrepr__(self, indent=""):
-        width = self.NAME_WIDTH - len(indent)
-        for name, obj in self.__dict__.items():
-            if name.startswith("_"):
-                continue
-            try:
-                fmt = obj.__genrepr__(indent=indent + "  ")
-            except AttributeError:
-                name = format(name + ":", f"{width}s")
-                yield indent + name + repr(obj)
-            else:
-                yield indent + name + ":"
-                yield from fmt
+    def __init__(self, val):
+        self.val = int(val)
 
 
     def __repr__(self):
-        if is_repl():
-            return "\n".join(self.__genrepr__())
+        return f"{self.val:2d} ({self.modifier:+d})"
+    
+
+    @property
+    def modifier(self):
+        return self.val // 2 - 5
+
+
+
+class Abilities(EzObject):
+
+    _names = [
+        "strength",
+        "dexterity",
+        "constitution",
+        "intelligence",
+        "wisdom",
+        "charisma",
+    ]
+
+
+    def __init__(self, *scores):
+        assert len(scores) == 6
+        scores = ( Ability(s) for s in scores )
+        self.__dict__.update(zip(self._names, scores))
+
+
+    @classmethod
+    def from_jso(cls, jso):
+        if isinstance(jso, list):
+            scores = jso
         else:
-            return super().__repr__()
-
-
-
-class EzAttr:
-
-    def __init__(self, **kwargs):
-        self.__dict__.update(**kwargs)
-
-
-    def __getattr__(self, name):
-        try:
-            name = fuzzy_match(name, self.__dict__)
-        except LookupError:
-            raise AttributeError(name)
-        else:
-            return self.__dict__[name]
-
-
-
-class EzObject(EzFormat, EzAttr):
-
-    pass
-
-
-
-def normalize_abilities(jso):
-    if isinstance(jso, list):
-        assert len(jso) == 6
-        res = dict(zip(game.ABILITIES, ( int(a) for a in jso )))
-    else:
-        res = { a: int(jso[fuzzy_match(a, jso)]) for a in game.ABILITIES }
-    return EzObject(**res)
+            scores = [ int(jso[fuzzy_match(a, jso)]) for a in cls._names ]
+        return cls(*scores)
+        
         
 
+class Player(EzObject):
 
-def normalize_player(jso, name):
-    return EzObject(
-        name        = name,
-        race        = fuzzy_match(jso.pop("race"), game.RACES),
-        class_      = fuzzy_match(jso.pop("class"), game.CLASSES),
-        abilities   = normalize_abilities(jso.pop("abilities")),
-        level       = int(jso.pop("level", 0)),
-        xp          = int(jso.pop("xp", 0)),
-        **jso,
-    )
+    def __init__(self, name, race, class_, abilities, level, xp):
+        self.name       = name
+        self.race       = race
+        self.class_     = class_
+        self.abilities  = abilities
+        self.level      = level
+        self.xp = xp
+
+
+    @classmethod
+    def from_jso(cls, jso):
+        return cls(
+            name        = jso["name"],
+            race        = fuzzy_match(jso["race"], game.RACES),
+            class_      = fuzzy_match(jso["class"], game.CLASSES),
+            abilities   = Abilities.from_jso(jso["abilities"]),
+            level       = int(jso.get("level", 0)),
+            xp          = int(jso.get("xp", 0)),
+        )
+
 
 
 def load_player_file(path):
     with open(path) as file:
         jso = yaml.load(file)
-    return EzObject(**{ n: normalize_player(p, n) for n, p in jso.items() })
+    return EzList( Player.from_jso(o) for o in jso )
 
 

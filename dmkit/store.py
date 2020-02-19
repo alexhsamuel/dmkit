@@ -1,6 +1,8 @@
+from   contextlib import suppress
 import yaml
 
 from   . import game
+from   .dice import d20
 from   .ez import EzObject, EzAttr, EzList, fuzzy_match
 
 #-------------------------------------------------------------------------------
@@ -18,6 +20,10 @@ class Ability(EzAttr):
     @property
     def modifier(self):
         return self.val // 2 - 5
+
+
+    def check(self):
+        return d20() + self.modifier
 
 
 
@@ -57,7 +63,10 @@ class Player(EzObject):
         self.class_     = class_
         self.abilities  = abilities
         self.level      = level
-        self.xp = xp
+        self.xp         = xp
+
+        # Inject abilities.
+        self.__dict__.update(abilities.__dict__)
 
 
     @classmethod
@@ -77,5 +86,38 @@ def load_player_file(path):
     with open(path) as file:
         jso = yaml.load(file)
     return EzList( Player.from_jso(o) for o in jso )
+
+
+#-------------------------------------------------------------------------------
+
+def _to_name(obj):
+    if isinstance(obj, str):
+        return obj
+    with suppress(AttributeError):
+        return obj.name
+    with suppress(AttributeError):
+        return obj.__name__
+    return str(obj)
+
+
+def check_modifier(who, type):
+    type = _to_name(type)
+    with suppress(AttributeError):
+        return getattr(who.abilities, type).modifier
+    with suppress(AttributeError):
+        return getattr(who.skills, type).modifier
+    raise AttributeError(f"no check type: {type}")
+
+
+# FIXME: Elsewhere.
+def check(who, type, dc):
+    type = _to_name(type)
+    mod = check_modifier(who, type)
+    roll = d20() + mod
+    succ = roll >= dc
+    succ_str = "success" if succ else "failure"
+    print(f"{type} check ({mod:+d}) DC {dc}: roll {roll}: {succ_str}")
+    return succ
+
 
 

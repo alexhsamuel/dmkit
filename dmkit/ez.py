@@ -54,7 +54,7 @@ class EzAttr:
         try:
             name = fuzzy_match(name, self.__dict__)
         except LookupError:
-            raise AttributeError(name)
+            raise AttributeError(name) from None
         else:
             return self.__dict__[name]
 

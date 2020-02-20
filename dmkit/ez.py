@@ -1,5 +1,7 @@
 #-------------------------------------------------------------------------------
 
+NONE = object()
+
 def is_repl():
     return True
 
@@ -16,6 +18,19 @@ def fuzzy_match(string, options):
     else:
         matches = " ".join( str(o) for o in matches )
         raise LookupError(f"ambiguous match: {string}: {matches}")
+
+
+def fuzzy_get(mapping, key, default=NONE):
+    try:
+        key = fuzzy_match(str(key), mapping)
+    except LookupError:
+        if default is NONE:
+            raise KeyError(key) from None
+        else:
+            return default
+    else:
+        return mapping[key]
+    
 
 
 class EzFormat:

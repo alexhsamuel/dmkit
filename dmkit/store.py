@@ -3,7 +3,8 @@ import yaml
 
 from   . import game
 from   .dice import d20
-from   .ez import EzObject, EzAttr, EzList, fuzzy_match
+from   .ez import EzObject, EzAttr, EzList, fuzzy_match, fuzzy_get
+from   .lib import if_none
 
 #-------------------------------------------------------------------------------
 
@@ -74,10 +75,31 @@ class Abilities(EzObject):
         
         
 
+class HitPoints(EzObject):
+
+    def __init__(self, max, current=None, temporary_max=None):
+        self.max = int(max)
+        self.current = if_none(int(current), self.max)
+        self.temporary_max = if_none(int(temporary_max), self.max)
+
+
+    @classmethod
+    def from_jso(cls, jso):
+        if isinstance(jso, int):
+            return cls(jso)
+
+        max = fuzzy_get(jso, "max")
+        current = fuzzy_get(jso, "current", None)
+        temporary_max = fuzzy_get(jso, "temporary_max", None)
+        return cls(max, current, temporary_max)
+
+
+
 class Creature(EzObject):
 
-    def __init__(self, abilities):
+    def __init__(self, abilities, hit_points):
         self.abilities  = abilities
+        self.hit_points = hit_points
 
 
     strength        = property(lambda self: self.abilities.strength)
@@ -86,6 +108,8 @@ class Creature(EzObject):
     intelligence    = property(lambda self: self.abilities.intelligence)
     wisdom          = property(lambda self: self.abilities.wisdom)
     charisma        = property(lambda self: self.abilities.charisma)
+
+    hp              = property(lambda self: self.hit_points)
 
 
     @classmethod

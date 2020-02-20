@@ -7,10 +7,32 @@ from   .ez import EzObject, EzAttr, EzList, fuzzy_match
 
 #-------------------------------------------------------------------------------
 
+class Check(EzAttr):
+
+    def __init__(self, modifier):
+        self.modifier = modifier
+
+
+    def __call__(self):
+        return d20() + self.modifier
+
+
+    def __truediv__(self, dc):
+        mod = self.modifier
+        roll = d20()
+        i = input(f"check ({mod:+d}) DC {dc} [roll {roll}] ").strip()
+        if i != "":
+            roll = int(roll)
+            assert 1 <= roll <= 20
+        return roll + mod >= dc
+
+
+
 class Ability(EzAttr):
 
     def __init__(self, val):
         self.val = int(val)
+        self.check = Check(self.modifier)
 
 
     def __repr__(self):
@@ -21,9 +43,6 @@ class Ability(EzAttr):
     def modifier(self):
         return self.val // 2 - 5
 
-
-    def check(self):
-        return d20() + self.modifier
 
 
 
@@ -55,37 +74,56 @@ class Abilities(EzObject):
         
         
 
-class Player(EzObject):
+class Creature(EzObject):
 
-    def __init__(self, name, race, class_, abilities, level, xp):
-        self.name       = name
-        self.race       = race
-        self.class_     = class_
+    def __init__(self, abilities):
         self.abilities  = abilities
-        self.level      = level
-        self.xp         = xp
 
-        # Inject abilities.
-        self.__dict__.update(abilities.__dict__)
+
+    strength        = property(lambda self: self.abilities.strength)
+    dexterity       = property(lambda self: self.abilities.dexterity)
+    constitution    = property(lambda self: self.abilities.constitution)
+    intelligence    = property(lambda self: self.abilities.intelligence)
+    wisdom          = property(lambda self: self.abilities.wisdom)
+    charisma        = property(lambda self: self.abilities.charisma)
 
 
     @classmethod
     def from_jso(cls, jso):
         return cls(
-            name        = jso["name"],
-            race        = fuzzy_match(jso["race"], game.RACES),
-            class_      = fuzzy_match(jso["class"], game.CLASSES),
             abilities   = Abilities.from_jso(jso["abilities"]),
-            level       = int(jso.get("level", 0)),
-            xp          = int(jso.get("xp", 0)),
         )
 
 
 
-def load_player_file(path):
+class Character(Creature):
+
+    def __init__(self, name, race, class_, abilities, level, xp):
+        super().__init__(abilities)
+        self.name       = name
+        self.race       = race
+        self.abilities  = abilities
+        self.level      = level
+        self.xp         = xp
+
+
+    @classmethod
+    def from_jso(cls, jso):
+        self = Creature.from_jso(jso)
+        self.__dict__.update(
+            name        = jso["name"],
+            race        = fuzzy_match(jso["race"], game.RACES),
+            class_      = fuzzy_match(jso["class"], game.CLASSES),
+            level       = int(jso.get("level", 0)),
+            xp          = int(jso.get("xp", 0)),
+        )
+        return self
+
+
+def load_party(path):
     with open(path) as file:
         jso = yaml.load(file)
-    return EzList( Player.from_jso(o) for o in jso )
+    return EzList( Character.from_jso(o) for o in jso )
 
 
 #-------------------------------------------------------------------------------
@@ -98,26 +136,5 @@ def _to_name(obj):
     with suppress(AttributeError):
         return obj.__name__
     return str(obj)
-
-
-def check_modifier(who, type):
-    type = _to_name(type)
-    with suppress(AttributeError):
-        return getattr(who.abilities, type).modifier
-    with suppress(AttributeError):
-        return getattr(who.skills, type).modifier
-    raise AttributeError(f"no check type: {type}")
-
-
-# FIXME: Elsewhere.
-def check(who, type, dc):
-    type = _to_name(type)
-    mod = check_modifier(who, type)
-    roll = d20() + mod
-    succ = roll >= dc
-    succ_str = "success" if succ else "failure"
-    print(f"{type} check ({mod:+d}) DC {dc}: roll {roll}: {succ_str}")
-    return succ
-
 
 

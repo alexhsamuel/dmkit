@@ -6,6 +6,7 @@ def is_repl():
 
 def fuzzy_match(string, options):
     string = str(string).lower()
+    options = [ o for o in options if not str(o).startswith("_") ]
     matches = { o for o in options if str(o).lower().startswith(string) }
     if len(matches) == 0:
         raise LookupError(f"no match: {string}")
@@ -52,11 +53,11 @@ class EzAttr:
 
     def __getattr__(self, name):
         try:
-            name = fuzzy_match(name, self.__dict__)
+            name = fuzzy_match(name, dir(self))
         except LookupError:
             raise AttributeError(name) from None
         else:
-            return self.__dict__[name]
+            return getattr(self, name)
 
 
 

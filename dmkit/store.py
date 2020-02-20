@@ -79,8 +79,8 @@ class HitPoints(EzObject):
 
     def __init__(self, max, current=None, temporary_max=None):
         self.max = int(max)
-        self.current = if_none(int(current), self.max)
-        self.temporary_max = if_none(int(temporary_max), self.max)
+        self.current = int(if_none(current, self.max))
+        self.temporary_max = int(if_none(temporary_max, self.max))
 
 
     @classmethod
@@ -116,14 +116,15 @@ class Creature(EzObject):
     def from_jso(cls, jso):
         return cls(
             abilities   = Abilities.from_jso(jso["abilities"]),
+            hit_points  = HitPoints.from_jso(jso.get("hit points")),
         )
 
 
 
 class Character(Creature):
 
-    def __init__(self, name, race, class_, abilities, level, xp):
-        super().__init__(abilities)
+    def __init__(self, name, race, class_, abilities, hit_points, level, xp):
+        super().__init__(abilities, hit_points)
         self.name       = name
         self.race       = race
         self.abilities  = abilities

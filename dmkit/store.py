@@ -1,8 +1,7 @@
-from   contextlib import suppress
+from   pathlib import Path
 import yaml
 
-from   . import game
-from   .dice import d20
+from   . import dice, game
 from   .ez import EzObject, EzAttr, EzList, fuzzy_match, fuzzy_get
 from   .lib import if_none
 
@@ -15,12 +14,12 @@ class Check(EzAttr):
 
 
     def __call__(self):
-        return d20() + self.modifier
+        return dice.d20() + self.modifier
 
 
     def __truediv__(self, dc):
         mod = self.modifier
-        roll = d20()
+        roll = dice.d20()
         i = input(f"check ({mod:+d}) DC {dc} [roll {roll}] ").strip()
         if i != "":
             roll = int(roll)
@@ -97,6 +96,7 @@ class HitPoints(EzObject):
 
 class Creature(EzObject):
 
+    # FIXME: Don't need.
     def __init__(self, abilities, hit_points):
         self.abilities  = abilities
         self.hit_points = hit_points
@@ -123,6 +123,7 @@ class Creature(EzObject):
 
 class Character(Creature):
 
+    # FIXME: Dont' need?
     def __init__(self, name, race, class_, abilities, hit_points, level, xp):
         super().__init__(abilities, hit_points)
         self.name       = name
@@ -135,19 +136,65 @@ class Character(Creature):
     @classmethod
     def from_jso(cls, jso):
         self = Creature.from_jso(jso)
-        self.__dict__.update(
-            name        = jso["name"],
-            race        = fuzzy_match(jso["race"], game.RACES),
-            class_      = fuzzy_match(jso["class"], game.CLASSES),
-            level       = int(jso.get("level", 0)),
-            xp          = int(jso.get("xp", 0)),
-        )
+        self.name       = jso["name"]
+        self.race       = fuzzy_match(jso["race"], game.RACES)
+        self.class_     = fuzzy_match(jso["class"], game.CLASSES)
+        self.level      = int(jso.get("level", 0))
+        self.xp         = int(jso.get("xp", 0))
         return self
 
 
-def load_party(path):
-    with open(path) as file:
-        jso = yaml.load(file)
-    return EzList( Character.from_jso(o) for o in jso )
+class Monster(EzObject):
+    """
+    A template for a monster.
+    """
 
+    @classmethod
+    def from_jso(cls, jso):
+        # FIXME: Others.
+        self = cls()
+        self.name       = jso["name"]
+        # size
+        # shape
+        # alignment
+        self.hit_dice   = dice.parse(jso["hp"])
+        # speed
+        self.abilities  = Abilities.from_jso(jso["abilities"])
+        # skills
+        # senses
+        # languages
+        self.challenge  = jso["challenge"]
+        # features
+        # actions
+        return self
+
+
+    @property
+    def xp(self):
+        return game.XP_BY_CHALLENGE[self.challenge]
+        
+        
+
+
+def load_yaml_file(path):
+    with open(path, "rt") as file:
+        return yaml.load(file)
+
+
+def load_party(path):
+    return EzList( Character.from_jso(o) for o in load_yaml_file(path) )
+
+
+def load_monsters(path):
+    """
+    Loads all monsters from files in `path`.
+    """
+    return EzList(
+        Monster.from_jso(o)
+        for p in Path(path).iterdir()
+        if p.suffix == ".yaml"
+        for jso in (load_yaml_file(p), )
+        for o in jso
+    )
+            
 

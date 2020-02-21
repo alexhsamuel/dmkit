@@ -151,15 +151,3 @@ def load_party(path):
     return EzList( Character.from_jso(o) for o in jso )
 
 
-#-------------------------------------------------------------------------------
-
-def _to_name(obj):
-    if isinstance(obj, str):
-        return obj
-    with suppress(AttributeError):
-        return obj.name
-    with suppress(AttributeError):
-        return obj.__name__
-    return str(obj)
-
-

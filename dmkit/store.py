@@ -172,13 +172,14 @@ class Monster(EzObject):
     @property
     def xp(self):
         return game.XP_BY_CHALLENGE[self.challenge]
-        
-        
 
+
+
+#-------------------------------------------------------------------------------
 
 def load_yaml_file(path):
     with open(path, "rt") as file:
-        return yaml.load(file)
+        return yaml.load(file, Loader=yaml.FullLoader)
 
 
 def load_party(path):

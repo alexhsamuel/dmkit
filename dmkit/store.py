@@ -1,8 +1,9 @@
+from   fixfmt.table import RowTable
 from   pathlib import Path
+import random
 import yaml
 
-from   . import dice, ez, game
-from   .lib import if_none
+from   . import dice, ez, game, lib
 
 #-------------------------------------------------------------------------------
 
@@ -43,6 +44,10 @@ class Ability(ez.Attr):
         return self.val // 2 - 5
 
 
+    def check(self):
+        return dice.d20() + self.modifier
+
+
 
 
 class Abilities(ez.Object):
@@ -77,8 +82,8 @@ class HitPoints(ez.Object):
 
     def __init__(self, max, current=None, temporary_max=None):
         self.max = int(max)
-        self.current = int(if_none(current, self.max))
-        self.temporary_max = int(if_none(temporary_max, self.max))
+        self.current = int(lib.if_none(current, self.max))
+        self.temporary_max = int(lib.if_none(temporary_max, self.max))
 
 
     @classmethod
@@ -144,7 +149,7 @@ class Character(Creature):
 
 
 
-class Monster(ez.Object):
+class MonsterType(ez.Object):
     """
     A template for a monster.
     """
@@ -174,18 +179,84 @@ class Monster(ez.Object):
         return game.XP_BY_CHALLENGE[self.challenge]
 
 
+    def __call__(self, name=None):
+        """
+        Returns an instance of this monster type.
+        """
+        if name is None:
+            name = self.name
+        return Monster(name, self)
+
+
+    def __mul__(self, n):
+        return ez.List(
+            Monster(f"{self.name} #{i}", self)
+            for i in range(1, n + 1)
+        )
+
+
+    def __rmul__(self, n):
+        # Commutative.
+        return self.__mul__(n)
+
+
+
+class Monster(ez.Object):
+
+    def __init__(self, name, type: MonsterType):
+        self.name       = name
+        self.type       = type
+        self.hit_points = HitPoints(type.hit_dice())
+    
+
+    def __getattr__(self, name):
+        # Proxy attributes from type.
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            try:
+                return getattr(self.type, name)
+            except AttributeError:
+                raise AttributeError(name) from None
+
+
 
 #-------------------------------------------------------------------------------
 
-class Initiative(ez.Object):
+def roll_initiative(participants):
+    # Per rules, group monsters by type; characters separately.
+    key = lambda p: getattr(p, "type", p).name
+    groups = [ list(g) for _, g in lib.group_by(participants, key=key) ]
+    # Roll for each group.
+    return {
+        p.name: roll
+        for g in groups
+        for roll in (g[0].abilities.dexterity.check(), )
+        for p in g
+    }
 
-    pass
 
 
+class Encounter(ez.List, ez.Attr):
 
-class Combat(ez.List):
+    def __init__(self, *args):
+        super().__init__(lib.flatten(args))
+        self.initiative = roll_initiative(self)
+        # Fuzz the initiative roll, to break ties.
+        key = lambda p: self.initiative.get(p.name) + random.random()
+        self.sort(key=key, reverse=True)
 
-    pass
+
+    def __str__(self):
+        tbl = RowTable()
+        for p in self:
+            tbl.append(
+                init        =self.initiative[p.name],
+                name        =p.name,
+                hp          =p.hp.current,
+                hpmax       =p.hp.max,
+            )
+        return "\n".join(tbl)
 
 
 
@@ -205,7 +276,7 @@ def load_monsters(path):
     Loads all monsters from files in `path`.
     """
     return ez.List(
-        Monster.from_jso(o)
+        MonsterType.from_jso(o)
         for p in Path(path).iterdir()
         if p.suffix == ".yaml"
         for jso in (load_yaml_file(p), )

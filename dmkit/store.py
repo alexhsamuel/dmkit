@@ -58,14 +58,7 @@ class Ability(ez.Attr):
 
 class Abilities(ez.Object):
 
-    _names = [
-        "strength",
-        "dexterity",
-        "constitution",
-        "intelligence",
-        "wisdom",
-        "charisma",
-    ]
+    _names = game.ABILITIES
 
 
     def __init__(self, *scores):

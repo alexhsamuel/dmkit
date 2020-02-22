@@ -1,3 +1,12 @@
+ABILITIES = (
+    "strength",
+    "dexterity",
+    "constitution",
+    "intelligence",
+    "wisdom",
+    "charisma",
+)
+
 RACES = {
     "elf",
     "half-elf",

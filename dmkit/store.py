@@ -13,8 +13,14 @@ class Check(ez.Attr):
         self.modifier = modifier
 
 
-    def __call__(self):
-        return dice.d20() + self.modifier
+    def __call__(self, name="check"):
+        mod = self.modifier
+        roll = dice.d20()
+        i = input(f"{name} ({mod:+d}) [roll {roll}] ").strip()
+        if i != "":
+            roll = int(roll)
+            assert 1 <= roll <= 20
+        return roll + mod
 
 
     def __truediv__(self, dc):
@@ -37,7 +43,7 @@ class Ability(ez.Attr):
 
     def __repr__(self):
         return f"{self.val:2d} ({self.modifier:+d})"
-    
+
 
     @property
     def modifier(self):
@@ -75,8 +81,8 @@ class Abilities(ez.Object):
         else:
             scores = [ int(jso[ez.match(a, jso)]) for a in cls._names ]
         return cls(*scores)
-        
-        
+
+
 
 class HitPoints(ez.Object):
 
@@ -207,7 +213,7 @@ class Monster(ez.Object):
         self.name       = name
         self.type       = type
         self.hit_points = HitPoints(type.hit_dice())
-    
+
 
     def __getattr__(self, name):
         # Proxy attributes from type.
@@ -223,41 +229,46 @@ class Monster(ez.Object):
 
 #-------------------------------------------------------------------------------
 
-def roll_initiative(participants):
-    # Per rules, group monsters by type; characters separately.
-    key = lambda p: getattr(p, "type", p).name
-    groups = [ list(g) for _, g in lib.group_by(participants, key=key) ]
-    # Roll for each group.
-    return {
-        p.name: roll
-        for g in groups
-        for roll in (g[0].abilities.dexterity.check(), )
-        for p in g
-    }
-
-
-
 class Encounter(ez.List, ez.Attr):
 
     def __init__(self, *args):
         super().__init__(lib.flatten(args))
-        self.initiative = roll_initiative(self)
-        # Fuzz the initiative roll, to break ties.
-        key = lambda p: self.initiative.get(p.name) + random.random()
-        self.sort(key=key, reverse=True)
+        self.initiative = {}
 
 
     def __str__(self):
         tbl = RowTable()
         for p in self:
             tbl.append(
-                init        =self.initiative[p.name],
+                init        =self.initiative.get(p.name, "?"),
                 name        =p.name,
                 hp          =p.hp.current,
                 hpmax       =p.hp.max,
             )
         return "\n".join(tbl)
 
+
+
+def initiative(enc):
+    # Per rules, group monsters by type; characters separately.
+    key = lambda p: getattr(p, "type", p).name
+    groups = [ list(g) for _, g in lib.group_by(enc, key=key) ]
+
+    # Roll for each group.
+    def roll(p):
+        return p.abilities.dexterity.check(f"initiative for {p.name}")
+
+    enc.initiative = {
+        p.name: r
+        for g in groups
+        for r in (roll(g[0]), )
+        for p in g
+    }
+
+    # Fuzz the initiative roll, to break ties.
+    key = lambda p: enc.initiative.get(p.name) + random.random()
+    enc.sort(key=key, reverse=True)
+    print(enc)
 
 
 #-------------------------------------------------------------------------------
@@ -282,5 +293,5 @@ def load_monsters(path):
         for jso in (load_yaml_file(p), )
         for o in jso
     )
-            
+
 

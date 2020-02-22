@@ -1,13 +1,12 @@
 from   pathlib import Path
 import yaml
 
-from   . import dice, game
-from   .ez import EzObject, EzAttr, EzList, fuzzy_match, fuzzy_get
+from   . import dice, ez, game
 from   .lib import if_none
 
 #-------------------------------------------------------------------------------
 
-class Check(EzAttr):
+class Check(ez.Attr):
 
     def __init__(self, modifier):
         self.modifier = modifier
@@ -28,7 +27,7 @@ class Check(EzAttr):
 
 
 
-class Ability(EzAttr):
+class Ability(ez.Attr):
 
     def __init__(self, val):
         self.val = int(val)
@@ -46,7 +45,7 @@ class Ability(EzAttr):
 
 
 
-class Abilities(EzObject):
+class Abilities(ez.Object):
 
     _names = [
         "strength",
@@ -69,12 +68,12 @@ class Abilities(EzObject):
         if isinstance(jso, list):
             scores = jso
         else:
-            scores = [ int(jso[fuzzy_match(a, jso)]) for a in cls._names ]
+            scores = [ int(jso[ez.match(a, jso)]) for a in cls._names ]
         return cls(*scores)
         
         
 
-class HitPoints(EzObject):
+class HitPoints(ez.Object):
 
     def __init__(self, max, current=None, temporary_max=None):
         self.max = int(max)
@@ -87,14 +86,14 @@ class HitPoints(EzObject):
         if isinstance(jso, int):
             return cls(jso)
 
-        max = fuzzy_get(jso, "max")
-        current = fuzzy_get(jso, "current", None)
-        temporary_max = fuzzy_get(jso, "temporary_max", None)
+        max = ez.get(jso, "max")
+        current = ez.get(jso, "current", None)
+        temporary_max = ez.get(jso, "temporary_max", None)
         return cls(max, current, temporary_max)
 
 
 
-class Creature(EzObject):
+class Creature(ez.Object):
 
     # FIXME: Don't need.
     def __init__(self, abilities, hit_points):
@@ -137,14 +136,15 @@ class Character(Creature):
     def from_jso(cls, jso):
         self = Creature.from_jso(jso)
         self.name       = jso["name"]
-        self.race       = fuzzy_match(jso["race"], game.RACES)
-        self.class_     = fuzzy_match(jso["class"], game.CLASSES)
+        self.race       = ez.match(jso["race"], game.RACES)
+        self.class_     = ez.match(jso["class"], game.CLASSES)
         self.level      = int(jso.get("level", 0))
         self.xp         = int(jso.get("xp", 0))
         return self
 
 
-class Monster(EzObject):
+
+class Monster(ez.Object):
     """
     A template for a monster.
     """
@@ -177,20 +177,34 @@ class Monster(EzObject):
 
 #-------------------------------------------------------------------------------
 
+class Initiative(ez.Object):
+
+    pass
+
+
+
+class Combat(ez.List):
+
+    pass
+
+
+
+#-------------------------------------------------------------------------------
+
 def load_yaml_file(path):
     with open(path, "rt") as file:
         return yaml.load(file, Loader=yaml.FullLoader)
 
 
 def load_party(path):
-    return EzList( Character.from_jso(o) for o in load_yaml_file(path) )
+    return ez.List( Character.from_jso(o) for o in load_yaml_file(path) )
 
 
 def load_monsters(path):
     """
     Loads all monsters from files in `path`.
     """
-    return EzList(
+    return ez.List(
         Monster.from_jso(o)
         for p in Path(path).iterdir()
         if p.suffix == ".yaml"

@@ -6,7 +6,7 @@ def is_repl():
     return True
 
 
-def fuzzy_match(string, options):
+def match(string, options):
     string = str(string).lower()
     options = [ o for o in options if not str(o).startswith("_") ]
     matches = { o for o in options if str(o).lower().startswith(string) }
@@ -20,9 +20,9 @@ def fuzzy_match(string, options):
         raise LookupError(f"ambiguous match: {string}: {matches}")
 
 
-def fuzzy_get(mapping, key, default=NONE):
+def get(mapping, key, default=NONE):
     try:
-        key = fuzzy_match(str(key), mapping)
+        key = match(str(key), mapping)
     except LookupError:
         if default is NONE:
             raise KeyError(key) from None
@@ -33,7 +33,7 @@ def fuzzy_get(mapping, key, default=NONE):
     
 
 
-class EzFormat:
+class Format:
 
     NAME_WIDTH = 24
 
@@ -60,7 +60,7 @@ class EzFormat:
 
 
 
-class EzAttr:
+class Attr:
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -68,7 +68,7 @@ class EzAttr:
 
     def __getattr__(self, name):
         try:
-            name = fuzzy_match(name, dir(self))
+            name = match(name, dir(self))
         except LookupError:
             raise AttributeError(name) from None
         else:
@@ -76,18 +76,18 @@ class EzAttr:
 
 
 
-class EzObject(EzFormat, EzAttr):
+class Object(Format, Attr):
 
     pass
 
 
 
-class EzList(list):
+class List(list):
 
     def __getattr__(self, name):
         items = { i.name: i for i in self }
         try:
-            name = fuzzy_match(name, items)
+            name = match(name, items)
         except LookupError:
             raise AttributeError(name)
         else:
@@ -95,7 +95,7 @@ class EzList(list):
         
 
     def __genrepr__(self, indent=""):
-        width = EzObject.NAME_WIDTH - len(indent)
+        width = Object.NAME_WIDTH - len(indent)
         for obj in self:
             name = obj.name
             try:

@@ -97,7 +97,21 @@ class HitPoints(ez.Object):
 
 
 
+<<<<<<< HEAD
 class Creature(ez.Object):
+=======
+class Action(EzObject):
+
+    @classmethod
+    def from_jso(cls, jso):
+        self = cls()
+        self.__dict__.update(**jso)
+        return self
+
+
+
+class Creature(EzObject):
+>>>>>>> Action.
 
     # FIXME: Don't need.
     def __init__(self, abilities, hit_points):
@@ -144,6 +158,7 @@ class Character(Creature):
         self.class_     = ez.match(jso["class"], game.CLASSES)
         self.level      = int(jso.get("level", 0))
         self.xp         = int(jso.get("xp", 0))
+        self.actions    = EzObject(**{ n: Action.from_jso(a) for n, a in jso.get("actions", {}).items() })
         return self
 
 

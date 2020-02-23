@@ -151,7 +151,7 @@ class List(list):
         try:
             name = match(name, items)
         except AmbiguousMatchError as exc:
-            raise AttributeError(str(exc)) # from None
+            raise AttributeError(str(exc)) from None
         except LookupError:
             raise AttributeError(name) from None
         else:

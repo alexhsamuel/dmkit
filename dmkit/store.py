@@ -58,13 +58,10 @@ class Ability(ez.Attr):
 
 class Abilities(ez.Object):
 
-    _names = game.ABILITIES
-
-
     def __init__(self, *scores):
         assert len(scores) == 6
         scores = ( Ability(s) for s in scores )
-        self.__dict__.update(zip(self._names, scores))
+        self.__dict__.update(zip(game.ABILITIES, scores))
 
 
     @classmethod
@@ -72,7 +69,7 @@ class Abilities(ez.Object):
         if isinstance(jso, list):
             scores = jso
         else:
-            scores = [ int(jso[ez.match(a, jso)]) for a in cls._names ]
+            scores = [ int(jso[ez.match(a, jso)]) for a in game.ABILITIES ]
         return cls(*scores)
 
 
@@ -97,10 +94,7 @@ class HitPoints(ez.Object):
 
 
 
-<<<<<<< HEAD
-class Creature(ez.Object):
-=======
-class Action(EzObject):
+class Action(ez.Object):
 
     @classmethod
     def from_jso(cls, jso):
@@ -109,9 +103,14 @@ class Action(EzObject):
         return self
 
 
+    def __rshift__(self, target):
+        # FIXME: Proficiency.
+        if self.type == "melee":
+            check = None
 
-class Creature(EzObject):
->>>>>>> Action.
+
+
+class Creature(ez.Object):
 
     # FIXME: Don't need.
     def __init__(self, abilities, hit_points):
@@ -158,7 +157,7 @@ class Character(Creature):
         self.class_     = ez.match(jso["class"], game.CLASSES)
         self.level      = int(jso.get("level", 0))
         self.xp         = int(jso.get("xp", 0))
-        self.actions    = EzObject(**{ n: Action.from_jso(a) for n, a in jso.get("actions", {}).items() })
+        self.actions    = ez.Object(**{ n: Action.from_jso(a) for n, a in jso.get("actions", {}).items() })
         return self
 
 
